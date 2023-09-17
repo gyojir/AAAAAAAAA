@@ -1,0 +1,39 @@
+{
+  "name": "aaaaaaaaa",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=development parcel src/index.html --no-hmr --open",
+    "postbuild": "cpx node_modules/@tensorflow/tfjs-tflite/dist/**/* dist/static/tflite",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "cpx": "^1.5.0",
+    "cross-env": "^7.0.3",
+    "parcel": "^2.9.3",
+    "parcel-reporter-static-files-copy": "^1.5.2",
+    "process": "^0.11.10",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs-backend-cpu": "3.20",
+    "@tensorflow/tfjs-backend-wasm": "3.20",
+    "@tensorflow/tfjs-core": "3.20",
+    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.9",
+    "chart.js": "^4.4.0",
+    "flatbuffers": "^23.5.26",
+    "mathjs": "^11.11.0",
+    "regenerator-runtime": "^0.14.0"
+  },
+  "staticFiles": [
+    {
+      "staticPath": "node_modules/@tensorflow/tfjs-tflite/dist/",
+      "staticOutPath": "static/tflite"
+    }
+  ]
+}
