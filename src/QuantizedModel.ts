@@ -6,7 +6,7 @@ import * as flatbuffers from 'flatbuffers';
 import * as flatbuffer_tflite from './tflite_generated/tflite';
 
 class QuantizedModel {
-  private model: tflite.TFLiteModel;
+  private model: tflite.TFLiteModel | null = null;
   private input_quantization : {scale: number, zero_point: number};
   private output_quantization : {scale: number, zero_point: number};
 
@@ -19,18 +19,31 @@ class QuantizedModel {
     const flatbuf = new flatbuffers.ByteBuffer(buffer);
     const model = flatbuffer_tflite.Model.getRootAsModel(flatbuf);
     const subgraph = model.subgraphs(0);
-    const input_params = subgraph.tensors(subgraph.inputs(0)).quantization();
-    const output_params = subgraph.tensors(subgraph.outputs(0)).quantization();
-    this.input_quantization = {scale: input_params.scale(0), zero_point: Number(input_params.zeroPoint(0))};
-    this.output_quantization = {scale: output_params.scale(0), zero_point: Number(output_params.zeroPoint(0))};
+    const inputs = subgraph?.inputs(0);
+    const outputs = subgraph?.outputs(0);
+    if (inputs == null || outputs == null) {
+      return;
+    }
+    const input_params = subgraph?.tensors(inputs)?.quantization();
+    const output_params = subgraph?.tensors(outputs)?.quantization();
+    if (input_params == null || output_params == null) {
+      return;
+    }
+    this.input_quantization = {scale: input_params.scale(0) || 1, zero_point: Number(input_params.zeroPoint(0))};
+    this.output_quantization = {scale: output_params.scale(0) || 1, zero_point: Number(output_params.zeroPoint(0))};
 
     this.model = await tflite.loadTFLiteModel(buffer);
   } 
 
-  predict(input: tf.Tensor): number[] {
+  predict(input: tf.Tensor): number[] | null {
+    if (this.model == null) {
+      return null;
+    }
+    const model = this.model;
+
     const outputTensor = tf.tidy(() => {
       const input_q = tf.cast(tf.add(tf.div(input, this.input_quantization.scale), this.input_quantization.zero_point), 'int32');
-      let outputTensor = this.model.predict(input_q) as tf.Tensor;
+      let outputTensor = model.predict(input_q) as tf.Tensor;
       outputTensor = tf.mul(tf.sub(tf.cast(outputTensor, 'float32'), this.output_quantization.zero_point), this.output_quantization.scale);
       return outputTensor;
     });

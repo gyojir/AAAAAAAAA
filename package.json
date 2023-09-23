@@ -5,12 +5,16 @@
   "main": "index.js",
   "scripts": {
     "start": "cross-env NODE_ENV=development parcel src/index.html --no-hmr --open",
-    "postbuild": "cpx node_modules/@tensorflow/tfjs-tflite/dist/**/* dist/static/tflite",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@parcel/packager-xml": "^2.9.3",
+    "@parcel/resolver-glob": "^2.9.3",
+    "@parcel/transformer-worklet": "^2.9.3",
+    "@parcel/transformer-xml": "^2.9.3",
+    "@types/audioworklet": "^0.0.50",
     "buffer": "^6.0.3",
     "cpx": "^1.5.0",
     "cross-env": "^7.0.3",

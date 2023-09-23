@@ -6,11 +6,65 @@
 		<style>
 			body { margin: 0; }
 			canvas { display: block; }
+
+			.image-container {
+				display: flex;
+				flex-direction: column;
+				margin-right: 4px;
+				position: relative;
+				width: 244px;
+				user-select: none;
+			}
+
+			.hide {
+				display: none !important;
+			}
+
+			label {
+					/* padding: 10px 40px; */
+					color: #ffffff;
+					background-color: #384878;
+					cursor: pointer;
+			}
+
+			input[type="file"] {
+					display: none;
+			}
+
+			.tap-here * {
+				filter: blur(3px);
+				opacity: 0.5;
+			}
+
+			.tap-here::after {
+				content: "tap here 🔊";
+				font-size: larger;
+				font-weight: bold;
+				width: 100%;
+				opacity: 1;
+				/* background: rgba(0, 0, 255, .2); */
+				position: absolute;
+				top: 0;
+				left: 0;
+				text-align: center;
+				margin-top: 50%;
+			}
 		</style>
 	</head>
 	<body>
-		<img src="../hoge.jpg"/>
-		<canvas width="244" height="244"></canvas>
+		<div class="image-container trigger">
+			<img class="hide" id="input-image"></img>
+			<canvas width="224px" height="224px" id="input-canvas" class="hide"></canvas>
+		</div>
+		<video autoplay class="hide"></video>
+		<label>
+			load file
+			<input type="file" id="input-file">
+    </label>
+		<button id="camera-button">camera</button>
+		<div class="chart-container" style="width:244px; height:244px">
+			<canvas id="graph"></canvas>
+		</div>
 		<script type="module" src="./index.ts"></script>
 	</body>
 </html>

@@ -3,5 +3,6 @@
   "transformers": {
     "*.{tflite,png,jpg,wasm}": ["@parcel/transformer-raw"]
   },
-  "reporters":  ["...", "parcel-reporter-static-files-copy"]
+  "reporters":  ["...", "parcel-reporter-static-files-copy"],
+  "resolvers": ["@parcel/resolver-glob", "..."]
 }
