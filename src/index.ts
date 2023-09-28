@@ -1,18 +1,12 @@
 
-import '@tensorflow/tfjs-backend-cpu';
-import * as tf from '@tensorflow/tfjs-core';
-import * as tflite from '@tensorflow/tfjs-tflite';
-import * as faceapi from '@vladmandic/face-api';
+import '@tensorflow/tfjs-backend-webgl';
+import * as tf from '@tensorflow/tfjs';
+import * as faceDetection from '@tensorflow-models/face-detection';
 import Chart from 'chart.js/auto';
-import img2spctr_file from './../models/img2spctr_quantized_and_pruned.tflite';
-import img2f0_file from './../models/img2f0_quantized_and_pruned.tflite';
-import QuantizedModel from './QuantizedModel';
+import Model from './Model';
 import { GetOneFrameSegment } from './synthesis';
-import { ele, createPulseGeneratorNode, element_wise_ave, ave, sleep, createFileFromUrl } from './misc';
+import { ele, createPulseGeneratorNode, element_wise_ave, ave } from './misc';
 import * as images from '../images/*.jpg';
-import haarcascade_frontalface_default from './../models/haarcascade_frontalface_default.xml.gz';
-import deploy_prototxt from './../models/deploy.prototxt';
-import res10_300x300_ssd_iter_140000 from './../models/res10_300x300_ssd_iter_140000.caffemodel';
 const cv = require('./opencv/opencv.js');
 
 const onCvInitialized = new Promise(resolve=>{
@@ -22,13 +16,10 @@ const onCvInitialized = new Promise(resolve=>{
 
 console.warn = function() {}
 
-// tflite.setWasmPath('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-tflite@0.0.1-alpha.9/dist/');
-tflite.setWasmPath('/static/tflite/');
-
 const SamplingRate = 8000;
 
-const img2spctr = new QuantizedModel;
-const img2f0 = new QuantizedModel;
+const img2spctr = new Model;
+const img2f0 = new Model;
 let input_data: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement;
 let spectrograms: number[][] = [];
 let f0s: number[] = [];
@@ -54,8 +45,7 @@ let isSoundPlaying = false;
 let crossFade = 0.0;
 let crossFadeIntervalId: NodeJS.Timeout | null = null;
 
-let classifier: any = null;
-let faceDetector: any = null;
+let detector: faceDetection.FaceDetector | null = null;
 
 const video = ele<HTMLVideoElement>('video');
 const image = ele<HTMLImageElement>('#input-image');
@@ -64,18 +54,14 @@ const trigger = ele('.trigger');
 
 async function start() {
   await onCvInitialized;
-  
-  await new Promise(resolve => createFileFromUrl(cv, 'haarcascade_frontalface_default.xml.gz', haarcascade_frontalface_default, resolve));
-  classifier  = new cv.CascadeClassifier();
-  classifier.load('haarcascade_frontalface_default.xml.gz');
 
-  await new Promise(resolve => createFileFromUrl(cv, 'deploy.prototxt', deploy_prototxt, resolve));
-  await new Promise(resolve => createFileFromUrl(cv, 'res10_300x300_ssd_iter_140000.caffemodel', res10_300x300_ssd_iter_140000, resolve));  
-  faceDetector = cv.readNetFromCaffe('deploy.prototxt', 'res10_300x300_ssd_iter_140000.caffemodel');
+  const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
+  const detectorConfig = {
+    runtime: 'tfjs',
+  } as const;
+  detector = await faceDetection.createDetector(model, detectorConfig);
 
   await loadModels();
-
-  await faceapi.nets.tinyFaceDetector.loadFromUri('/static/face-api');
 
   if (Object.keys(images).length > 0) {
     await loadImage(Object.values(images)[0])
@@ -116,15 +102,6 @@ async function start() {
       await updateSound();
     }
   });
-
-  // (async () => {
-  //   while(true) {
-  //     await predict();
-  //     await sleep(20);
-  //   }
-  // })();
-
-  // predictIntervalId = setInterval(predict, 500);
 }
 
 async function setupCam() {
@@ -158,8 +135,8 @@ function stopVideo() {
 }
 
 async function loadModels() {
-  await img2spctr.load(img2spctr_file);
-  await img2f0.load(img2f0_file);
+  await img2spctr.load('/static/img2spctr/model.json');
+  await img2f0.load('/static/img2f0/model.json');
 }
 
 async function loadImage(path: string) {
@@ -177,67 +154,9 @@ async function faceDetect(input: HTMLImageElement | HTMLCanvasElement | HTMLVide
 
   const src = cv.imread(input);
 
-  // CascadeClassifier
-  {
-    const padding = 20;
-    const gray = new cv.Mat();
-    const padded = new cv.Mat();
-    const result = new cv.RectVector();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-    cv.copyMakeBorder(gray, padded, padding, padding, padding, padding, cv.BORDER_CONSTANT, [0,0,0,255]);
-    classifier.detectMultiScale(padded, result, 1.1, 3, 0);
-    for (let i = 0; i < result.size(); ++i) {
-      const rect = result.get(i);
-      faces.push({left: rect.x - padding, top: rect.y - padding, right: rect.x + rect.width - padding, bottom: rect.y + rect.height - padding, col: [255, 0, 0, 255]});
-      break;
-    }
-    result.delete();
-    padded.delete();
-    gray.delete();
-  }
-
-  // SSD face detector
-  {
-    const padding = 20;
-    const imgResized = new cv.Mat();
-    const imgBGR = new cv.Mat();
-    const padded = new cv.Mat();
-    cv.copyMakeBorder(src, padded, padding, padding, padding, padding, cv.BORDER_CONSTANT, [255,255,255,255]);
-    cv.imshow('tmp', padded);
-    cv.resize(padded, imgResized, {width: 300, height: 300});
-    cv.cvtColor(imgResized, imgBGR, cv.COLOR_RGBA2BGR);
-    const inputBlob = cv.blobFromImage(imgBGR, 1.0)
-    faceDetector.setInput(inputBlob)
-    const outputBlob = faceDetector.forward();
-
-    for (let i = 0, n = outputBlob.data32F.length; i < n; i += 7) {
-      const confidence = outputBlob.data32F[i + 2];
-      let left = outputBlob.data32F[i + 3] * padded.cols - padding;
-      let top = outputBlob.data32F[i + 4] * padded.rows - padding;
-      let right = outputBlob.data32F[i + 5] * padded.cols - padding;
-      let bottom = outputBlob.data32F[i + 6] * padded.rows - padding;
-      left = Math.min(Math.max(0, left), src.cols - 1);
-      right = Math.min(Math.max(0, right), src.cols - 1);
-      bottom = Math.min(Math.max(0, bottom), src.rows - 1);
-      top = Math.min(Math.max(0, top), src.rows - 1);
-      if (confidence > 0.5 && left < right && top < bottom) {
-        faces.push({left, top, right, bottom, col: [0,0,255,255]})
-      }
-    }
-    
-    outputBlob.delete();
-    inputBlob.delete();
-    padded.delete();
-    imgBGR.delete();
-    imgResized.delete();
-  }
-
-  // tiny face detector
-  {
-    const detections = await faceapi.detectAllFaces(input, new faceapi.TinyFaceDetectorOptions());
-    for (let detection of detections) {
-      faces.push({left: detection.box.left, top: detection.box.top, right: detection.box.right, bottom: detection.box.bottom, col: [0, 255, 0, 255]});
-    }
+  const detections = await detector?.estimateFaces(input) || [];
+  for (let detection of detections) {
+    faces.push({left: detection.box.xMin, top: detection.box.yMin, right: detection.box.xMax, bottom: detection.box.yMax, col: [0, 255, 0, 255]});
   }
 
   for (let face of faces)
@@ -267,7 +186,8 @@ async function predict() {
       faces[0].top / input_data.height,
       faces[0].left / input_data.width,
       faces[0].bottom / input_data.height,
-      faces[0].right / input_data.width];
+      faces[0].right / input_data.width,
+    ];
     let imgs = tf.image.cropAndResize(tf.expandDims<tf.Tensor4D>(img), [box], [0], [71,71])
     // img = tf.image.resizeBilinear(img, [71,71]);
     const inputTensor = tf.div(imgs, 255.0);

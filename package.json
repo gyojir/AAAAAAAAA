@@ -29,10 +29,8 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@tensorflow/tfjs-backend-cpu": "3.20",
-    "@tensorflow/tfjs-backend-wasm": "3.20",
-    "@tensorflow/tfjs-core": "3.20",
-    "@tensorflow/tfjs-tflite": "^0.0.1-alpha.9",
+    "@tensorflow-models/face-detection": "^1.0.2",
+    "@tensorflow/tfjs": "^4.11.0",
     "@vladmandic/face-api": "^1.7.12",
     "chart.js": "^4.4.0",
     "flatbuffers": "^23.5.26",
@@ -41,19 +39,15 @@
   },
   "staticFiles": [
     {
-      "staticPath": "node_modules/@tensorflow/tfjs-tflite/dist/",
-      "staticOutPath": "static/tflite"
-    },
-    {
       "staticPath": "src/opencv/opencv_js.wasm"
     },
     {
-      "staticPath": "node_modules/@vladmandic/face-api/model/tiny_face_detector_model.bin",
-      "staticOutPath": "static/face-api"
+      "staticPath": "models/img2spctr",
+      "staticOutPath": "static/img2spctr"
     },
     {
-      "staticPath": "node_modules/@vladmandic/face-api/model/tiny_face_detector_model-weights_manifest.json",
-      "staticOutPath": "static/face-api"
+      "staticPath": "models/img2f0",
+      "staticOutPath": "static/img2f0"
     }
   ]
 }
