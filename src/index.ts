@@ -10,14 +10,6 @@ import { GetOneFrameSegment } from './synthesis';
 import { ele, createPulseGeneratorNode, element_wise_ave, ave } from './misc';
 import * as images from '../images/*.jpg';
 import MicroModal from 'micromodal';
-const cv = require('./opencv/opencv.js');
-
-const onCvInitialized = new Promise(resolve=>{
-  cv.onRuntimeInitialized = resolve;
-});
-
-
-console.warn = function() {}
 
 const SamplingRate = 8000;
 
@@ -35,7 +27,7 @@ let isRealTimeMode = false;
 const SpectrogramAverageNum = 2;
 const f0AverageNum = 50;
 
-window.AudioContext = window.AudioContext || window.webkitAudioContext;
+const AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioContext: AudioContext | null = null;
 let oscillator: OscillatorNode | null = null;
 let processorNode: AudioWorkletNode | null = null;
@@ -57,7 +49,6 @@ const trigger = ele('.trigger');
 
 async function start() {
   MicroModal.init();
-  await onCvInitialized;
 
   // サンプル画像ロード
   if (Object.keys(images).length > 0) {
@@ -154,8 +145,8 @@ function stopVideo() {
 }
 
 async function loadModels() {
-  await img2spctr.load('/static/img2spctr/model.json');
-  await img2f0.load('/static/img2f0/model.json');
+  await img2spctr.load('./static/img2spctr/model.json');
+  await img2f0.load('./static/img2f0/model.json');
   
   const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
   const detectorConfig = {
@@ -177,19 +168,21 @@ async function loadImage(path: string) {
 async function faceDetect(input: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement): Promise<{left: number, top: number, right: number, bottom: number}[]> {
   let faces: {left: number, top: number, right: number, bottom: number, col: number[]}[] = [];
 
-  const src = cv.imread(input);
-
   const detections = await detector?.estimateFaces(input) || [];
   for (let detection of detections) {
     faces.push({left: detection.box.xMin, top: detection.box.yMin, right: detection.box.xMax, bottom: detection.box.yMax, col: [0, 255, 0, 255]});
   }
 
-  for (let face of faces)
+  if (process.env.NODE_ENV === 'development')
   {
-    cv.rectangle(src, {x: face.left, y: face.top}, {x: face.right, y: face.bottom}, face.col);
-    cv.imshow('canvasOutput', src);
+    const src = cv.imread(input);
+    for (let face of faces)
+    {
+      cv.rectangle(src, {x: face.left, y: face.top}, {x: face.right, y: face.bottom}, face.col);
+      cv.imshow('canvasOutput', src);
+    }
+    src.delete();
   }
-  src.delete();
 
   return faces;
 }
@@ -323,7 +316,6 @@ async function updateSound() {
   }
 }
 
-
 async function playSound() {
   if (!audioContext) {
     audioContext = new AudioContext({sampleRate: SamplingRate});
@@ -332,10 +324,9 @@ async function playSound() {
     audioContext.resume();
   }
   
-  if(isSoundPlaying) {
+  if(isSoundPlaying || oscillator != null) {
     return;
-  }  
-  isSoundPlaying = true;
+  }
 
   oscillator = new OscillatorNode(audioContext, {type: 'square', frequency: f0});
   processorNode = await createPulseGeneratorNode(audioContext);
@@ -354,6 +345,7 @@ async function playSound() {
     .connect(audioContext.destination);
   
   oscillator.start();
+  isSoundPlaying = true;
 };
 
 async function stopSound() {
@@ -364,6 +356,10 @@ async function stopSound() {
   gainNodeSwap?.disconnect();
   convolver?.disconnect();
   convolverSwap?.disconnect();
+  oscillator = null;
+  processorNode = null;
+  gainNode = null;
+  gainNodeSwap = null;
   convolver = null;
   convolverSwap = null;
   isSoundPlaying = false;

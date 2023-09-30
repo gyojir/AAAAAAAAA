@@ -1,5 +1,4 @@
 
-import '@tensorflow/tfjs-backend-cpu';
 import * as tf from '@tensorflow/tfjs';
 
 class Model {

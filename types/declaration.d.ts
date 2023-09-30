@@ -1,3 +1,5 @@
-interface Window {
-  webkitAudioContext: typeof AudioContext
+export declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext
+  }
 }

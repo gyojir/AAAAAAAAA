@@ -116,6 +116,9 @@
 			</div>
 		</div>
 
+		<if condition="process.env.NODE_ENV === 'development'">
+			<script src="./opencv/opencv.js"></script>
+		</if>
 		<script type="module" src="./index.ts"></script>
 	</body>
 </html>
