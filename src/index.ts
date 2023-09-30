@@ -1,12 +1,15 @@
 
+import 'materialize-css/dist/css/materialize.min.css';
+import 'materialize-css/dist/js/materialize.min';
+import 'material-icons/iconfont/material-icons.css';
 import '@tensorflow/tfjs-backend-webgl';
 import * as tf from '@tensorflow/tfjs';
 import * as faceDetection from '@tensorflow-models/face-detection';
-import Chart from 'chart.js/auto';
 import Model from './Model';
 import { GetOneFrameSegment } from './synthesis';
 import { ele, createPulseGeneratorNode, element_wise_ave, ave } from './misc';
 import * as images from '../images/*.jpg';
+import MicroModal from 'micromodal';
 const cv = require('./opencv/opencv.js');
 
 const onCvInitialized = new Promise(resolve=>{
@@ -17,6 +20,9 @@ const onCvInitialized = new Promise(resolve=>{
 console.warn = function() {}
 
 const SamplingRate = 8000;
+
+let modelLoaded = false;
+let videoAnimReq: number;
 
 const img2spctr = new Model;
 const img2f0 = new Model;
@@ -29,8 +35,6 @@ let isRealTimeMode = false;
 const SpectrogramAverageNum = 2;
 const f0AverageNum = 50;
 
-let chart: Chart;
-
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 let audioContext: AudioContext | null = null;
 let oscillator: OscillatorNode | null = null;
@@ -41,7 +45,6 @@ let convolver: ConvolverNode | null = null;
 let convolverSwap: ConvolverNode | null = null;
 let responseBuf: AudioBuffer | null = null;
 let isSoundPlaying = false;
-
 let crossFade = 0.0;
 let crossFadeIntervalId: NodeJS.Timeout | null = null;
 
@@ -53,28 +56,37 @@ const canvas = ele<HTMLCanvasElement>('#input-canvas');
 const trigger = ele('.trigger');
 
 async function start() {
+  MicroModal.init();
   await onCvInitialized;
 
-  const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
-  const detectorConfig = {
-    runtime: 'tfjs',
-  } as const;
-  detector = await faceDetection.createDetector(model, detectorConfig);
-
-  await loadModels();
-
+  // サンプル画像ロード
   if (Object.keys(images).length > 0) {
     await loadImage(Object.values(images)[0])
     selectInputElement('image');
     trigger.classList.add('tap-here');
   }
 
+  // メインのクリック処理
   trigger.addEventListener('click', async (event) => {
     if (isSoundPlaying) {
       await stopSound();
-      video.play();
+      if (video.srcObject != null) {
+        await video.play();
+      }
     }
     else {
+      if (!modelLoaded) {
+        if(window.confirm("start downloading model?")){
+          MicroModal.show('modal-1');
+          await loadModels();
+          MicroModal.close('modal-1');
+          modelLoaded = true;
+        }
+        else {
+          return;
+        }
+      }
+
       trigger.classList.remove('tap-here');
       video.pause();
       await predict();
@@ -83,12 +95,14 @@ async function start() {
     }
   });
   
+  // カメラ起動
   ele('#camera-button')?.addEventListener('click', async () => {
     await stopSound();
     await setupCam();
     selectInputElement('video');
   });
 
+  // 画像ロード
   ele('#input-file').addEventListener('change', async (e: Event) => {
     if (!(e.target instanceof HTMLInputElement) || !e.target.files) {
       return;
@@ -105,6 +119,10 @@ async function start() {
 }
 
 async function setupCam() {
+  if (video.srcObject != null) {
+    return;
+  }
+
   const constraints = {
     video: {
       width: { min: 224, ideal: 224, max: 224, },
@@ -116,10 +134,10 @@ async function setupCam() {
   await new Promise(resolve => video.onplaying = resolve);
   updateVideo();
 }
-  
+
 function updateVideo() {
   canvas.getContext('2d')?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-  requestAnimationFrame(updateVideo);     
+  videoAnimReq = requestAnimationFrame(updateVideo);     
 }
 
 function stopVideo() {
@@ -127,6 +145,7 @@ function stopVideo() {
   if (!(stream instanceof MediaStream)) {
     return;
   }
+  cancelAnimationFrame(videoAnimReq);
   const tracks = stream.getTracks();
   tracks.forEach(function (track) {
     track.stop();
@@ -137,6 +156,12 @@ function stopVideo() {
 async function loadModels() {
   await img2spctr.load('/static/img2spctr/model.json');
   await img2f0.load('/static/img2f0/model.json');
+  
+  const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
+  const detectorConfig = {
+    runtime: 'tfjs',
+  } as const;
+  detector = await faceDetection.createDetector(model, detectorConfig);
 }
 
 async function loadImage(path: string) {
@@ -229,32 +254,6 @@ async function predict() {
   // インパルス応答取得
   const response = GetOneFrameSegment(f0, SamplingRate, sp_ave, sp_ave.length);
   impulseResponse = response;
-
-  /*
-  // グラフ描画
-  const canvas = ele<HTMLCanvasElement>('#graph');
-  const ctx = canvas.getContext('2d')!;
-  if(chart) {
-    chart.data.datasets[0].data = output.sp;
-    chart.update();
-  }
-  else {
-    chart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: output.sp.map((_, i) => i),
-        datasets: [{
-          label: 'x',
-          data: output.sp
-        }]
-      },
-      options: {
-        // responsive: true,
-        maintainAspectRatio: false,
-      }
-    });
-  }
-  */
 }
 
 async function updateSound() {

@@ -15,6 +15,7 @@
     "@parcel/transformer-worklet": "^2.9.3",
     "@parcel/transformer-xml": "^2.9.3",
     "@types/audioworklet": "^0.0.50",
+    "@types/micromodal": "^0.3.3",
     "buffer": "^6.0.3",
     "cpx": "^1.5.0",
     "cross-env": "^7.0.3",
@@ -34,7 +35,10 @@
     "@vladmandic/face-api": "^1.7.12",
     "chart.js": "^4.4.0",
     "flatbuffers": "^23.5.26",
+    "material-icons": "^1.13.12",
+    "materialize-css": "^1.0.0",
     "mathjs": "^11.11.0",
+    "micromodal": "^0.4.10",
     "regenerator-runtime": "^0.14.0"
   },
   "staticFiles": [
