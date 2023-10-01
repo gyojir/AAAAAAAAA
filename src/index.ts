@@ -70,7 +70,6 @@ async function start() {
         if(window.confirm("start downloading model?")){
           MicroModal.show('modal-1');
           await loadModels();
-          MicroModal.close('modal-1');
           modelLoaded = true;
         }
         else {
@@ -78,11 +77,12 @@ async function start() {
         }
       }
 
-      trigger.classList.remove('tap-here');
       video.pause();
       await predict();
       await playSound();
       await updateSound();
+      trigger.classList.remove('tap-here');
+      MicroModal.close('modal-1');
     }
   });
   
@@ -226,7 +226,7 @@ async function predict() {
   // スペクトラム移動平均
   const sp = output.sp.map(x => 10 ** x);
   spectrograms.push(sp);
-  if (isRealTimeMode) {
+  if (!isRealTimeMode) {
     spectrograms.splice(0, spectrograms.length - 1);
   }
   else if (spectrograms.length > SpectrogramAverageNum) {
@@ -236,7 +236,7 @@ async function predict() {
 
   // f0移動平均
   f0s.push(output.f0);
-  if (isRealTimeMode) {
+  if (!isRealTimeMode) {
     f0s.splice(0, f0s.length - 1);
   }
   else if (f0s.length > f0AverageNum) {
