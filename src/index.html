@@ -3,6 +3,7 @@
 	<head>
 		<meta charset="utf-8">
 		<title>AAAAAAAAA</title>
+		<meta name="viewport" content="width=device-width,initial-scale=1">
     <link rel="stylesheet" href="./micromodal.css">
 		<style>
 			body {
@@ -23,13 +24,15 @@
 				flex-direction: column;
 				position: relative;
 				user-select: none;
-				width: 300px;
+				width: 80%;
+				max-width: 400px
 			}
 			
 			.button-container {
 				display: flex;
 				flex-direction: column;
   			gap: 10px;
+				width: 200px;
 			}
 
 			.tap-here * {
@@ -39,7 +42,7 @@
 
 			.tap-here::after {
 				content: "tap here 🔊";
-				font-size: larger;
+				font-size: x-large;
 				font-weight: bold;
 				width: 100%;
 				opacity: 1;
@@ -55,8 +58,9 @@
 			}
 
 			/*input file*/
-			.btn {
+			.btn, .btn-large, .btn-small {
 				text-transform: unset !important;
+				font-size: larger;
 			}
 
 			.btn-file {
@@ -88,11 +92,11 @@
 			<video autoplay hidden></video>
 		</div>
 		<div class="button-container">
-			<span class="btn btn-file">
+			<span class="btn-large btn-file">
 				<i class="material-icons left">photo_library</i>
 				browse<input type="file" id="input-file">
 			</span>
-			<button class="btn" id="camera-button">
+			<button class="btn-large" id="camera-button">
 				<i class="material-icons left">videocam</i>camera
 			</button>
 		</div>
