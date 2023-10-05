@@ -7,11 +7,13 @@ import * as tf from '@tensorflow/tfjs';
 import * as faceDetection from '@tensorflow-models/face-detection';
 import Model from './Model';
 import { GetOneFrameSegment } from './synthesis';
-import { ele, createPulseGeneratorNode, element_wise_ave, ave } from './misc';
+import { ele, createPulseGeneratorNode, element_wise_ave, ave, normalize, overlapAdd } from './misc';
 import * as images from '../images/*.jpg';
 import MicroModal from 'micromodal';
+import { Muxer, ArrayBufferTarget } from 'webm-muxer';
 
 const SamplingRate = 8000;
+const SaveVideoDurationUS = 10_000_000;
 
 let modelLoaded = false;
 let videoAnimReq: number;
@@ -24,6 +26,7 @@ let f0s: number[] = [];
 let f0: number = -1;
 let impulseResponse: number[] | null = null;
 let isRealTimeMode = false;
+let lastInputData: ImageBitmap | null = null;
 const SpectrogramAverageNum = 2;
 const f0AverageNum = 50;
 
@@ -46,6 +49,7 @@ const video = ele<HTMLVideoElement>('video');
 const image = ele<HTMLImageElement>('#input-image');
 const canvas = ele<HTMLCanvasElement>('#input-canvas');
 const trigger = ele('.trigger');
+const savebutton = ele('#save-button');
 
 async function start() {
   MicroModal.init();
@@ -61,27 +65,28 @@ async function start() {
   trigger.addEventListener('click', async (event) => {
     if (isSoundPlaying) {
       await stopSound();
-      if (video.srcObject != null) {
-        await video.play();
-      }
+      await resumeVideo();
     }
     else {
+      pauseVideo();
+
       if (!modelLoaded) {
-        if(window.confirm("start downloading model?")){
+        if (window.confirm('start downloading model?')) {
           MicroModal.show('modal-1');
           await loadModels();
           modelLoaded = true;
         }
         else {
+          await resumeVideo();
           return;
         }
       }
 
-      video.pause();
       await predict();
       await playSound();
       await updateSound();
       trigger.classList.remove('tap-here');
+      savebutton.removeAttribute('disabled');
       MicroModal.close('modal-1');
     }
   });
@@ -107,6 +112,8 @@ async function start() {
       await updateSound();
     }
   });
+
+  setupEncoder();
 }
 
 async function setupCam() {
@@ -127,8 +134,21 @@ async function setupCam() {
 }
 
 function updateVideo() {
-  canvas.getContext('2d')?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-  videoAnimReq = requestAnimationFrame(updateVideo);     
+  // willReadFrequently を付けないと何故かエンコーディングに失敗する
+  canvas.getContext('2d', { willReadFrequently: true })?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+  videoAnimReq = requestAnimationFrame(updateVideo);
+}
+
+function pauseVideo() {
+  video.pause();
+  cancelAnimationFrame(videoAnimReq);
+}
+
+async function resumeVideo() {
+  if (video.srcObject != null) {
+    await video.play();
+  }
+  updateVideo();
 }
 
 function stopVideo() {
@@ -192,6 +212,8 @@ async function predict() {
     return;
   }
 
+  lastInputData = await createImageBitmap(input_data);
+
   const faces = await faceDetect(input_data);
   if (faces.length == 0) {
     faces.push({left: 0, top: 0, right: input_data.width, bottom: input_data.height});
@@ -246,7 +268,7 @@ async function predict() {
   
   // インパルス応答取得
   const response = GetOneFrameSegment(f0, SamplingRate, sp_ave, sp_ave.length);
-  impulseResponse = response;
+  impulseResponse = normalize(response);
 }
 
 async function updateSound() {
@@ -282,7 +304,7 @@ async function updateSound() {
     }
 
     // ConvolverNode作成
-    convolver = new ConvolverNode(audioContext);
+    convolver = new ConvolverNode(audioContext, { disableNormalization: true });
     convolver.buffer = responseBuf;
     processorNode
       .connect(convolver)
@@ -378,5 +400,99 @@ function selectInputElement(type: 'image' | 'video') {
     input_data = canvas;
   }
 }
+
+function setupEncoder() {
+  savebutton.addEventListener('click', create_movie);
+
+  async function create_movie() {
+    if (!impulseResponse || !lastInputData) {
+      return;
+    }
+    await stopSound();
+
+    const muxer = new Muxer({
+      target: new ArrayBufferTarget(),
+      video: {
+        codec: 'V_VP9',
+        width: lastInputData.width,
+        height: lastInputData.height,
+      },
+      audio: {
+        codec: 'A_OPUS',
+        numberOfChannels: 1,
+        sampleRate: SamplingRate,
+      },
+    });
+
+    // ビデオエンコード
+    const videoEncoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: (e) => { console.log(e.message) },
+    });
+    videoEncoder.configure({
+      codec: 'vp09.00.10.08',
+      width: lastInputData.width,
+      height: lastInputData.height,
+      latencyMode: 'realtime',
+      bitrateMode: 'constant',
+      bitrate: 2_000_000, // 2 Mbps
+    });
+    await encode_frame(lastInputData, 0, SaveVideoDurationUS, true);
+    await encode_frame(lastInputData, SaveVideoDurationUS, 0, true);
+
+    // オーディオエンコード
+    const audioEncoder = new AudioEncoder({
+      output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+      error: (e) => { console.log(e.message) },
+    });
+    audioEncoder.configure({
+      codec: 'opus',
+      sampleRate: SamplingRate,
+      numberOfChannels: 1,
+      bitrate: 128_000, // 128 kbps
+    });
+    const AudioSample = SamplingRate * SaveVideoDurationUS / 1_000_000;
+    const data = overlapAdd(impulseResponse, Math.floor(SamplingRate / f0), AudioSample);
+    const audioData = new AudioData({
+      data: new Float32Array(data),
+      format: 'f32',
+      numberOfChannels: 1,
+      numberOfFrames: data.length,
+      sampleRate: SamplingRate,
+      timestamp: 0,
+    });
+    audioEncoder.encode(audioData);
+    audioData.close();
+
+    // エンコード完了
+    await videoEncoder.flush();
+    await audioEncoder.flush();
+    muxer.finalize();
+    const { buffer } = muxer.target; // Buffer contains final MP4 file
+    openVideo(new Uint8Array(buffer));
+
+    // フレーム処理
+    async function encode_frame(bitmap: CanvasImageSource, timestamp_us: number, duration_us: number, keyFrame: boolean) {
+      const frame = new VideoFrame(bitmap, {
+        timestamp: timestamp_us,
+        duration: duration_us,
+      });
+      videoEncoder.encode(frame, { keyFrame: keyFrame });
+      frame.close();
+      await videoEncoder.flush();
+    }
+
+    // リンク生成
+    function openVideo(data: Uint8Array) {
+      const link = document.createElement('a');
+      const file = new Blob([data], { type: 'video/webm' });
+      link.href = URL.createObjectURL(file);
+      link.target = '_blank';
+      link.rel = "noopener noreferrer"
+      link.click();
+    };
+  }
+}
+
 
 start();

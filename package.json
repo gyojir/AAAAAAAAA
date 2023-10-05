@@ -44,7 +44,8 @@
     "materialize-css": "^1.0.0",
     "mathjs": "^10.6.4",
     "micromodal": "^0.4.10",
-    "regenerator-runtime": "^0.14.0"
+    "regenerator-runtime": "^0.14.0",
+    "webm-muxer": "^3.1.2"
   },
   "staticFiles": [
     {

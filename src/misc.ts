@@ -41,6 +41,24 @@ export function ave(arr: number[]) {
   return arr.reduce((prev,curr) => prev + curr) / arr.length;
 }
 
+export function normalize(arr: number[]) {
+  const max = arr.reduce((prev, curr) => Math.abs(curr) > prev ? Math.abs(curr) : prev, 0)
+  if (max < Number.EPSILON) {
+    return arr;
+  }
+  return arr.map(e => e / max);
+}
+
+export function overlapAdd(arr: ArrayLike<number>, interval: number, sample: number) {
+  const output = [...Array(sample)].map(e => 0);
+  for (let i = 0; i < sample; i+=interval) {
+    for (let j = 0; j < arr.length && i + j < sample; ++j) {
+      output[i + j] += arr[j];
+    }
+  }
+  return output;
+}
+
 export async function sleep(ms: number) {
   return await new Promise((res, req) => { 
     setTimeout(res, ms)
