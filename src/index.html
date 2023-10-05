@@ -25,7 +25,12 @@
 				position: relative;
 				user-select: none;
 				width: 80%;
-				max-width: 400px
+				max-width: 600px;
+			}
+
+			img {
+				object-fit: contain;
+				max-height: 600px;
 			}
 			
 			.button-container {
@@ -47,10 +52,10 @@
 				width: 100%;
 				opacity: 1;
 				position: absolute;
-				top: 0;
+				top: 50%;
 				left: 0;
 				text-align: center;
-				margin-top: 50%;
+    		transform: translate(0, -50%);
 			}
 
 			.hide {

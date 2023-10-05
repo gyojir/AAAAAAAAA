@@ -11,6 +11,7 @@ import { ele, createPulseGeneratorNode, element_wise_ave, ave, normalize, overla
 import * as images from '../images/*.jpg';
 import MicroModal from 'micromodal';
 import { Muxer, ArrayBufferTarget } from 'webm-muxer';
+import { randomInt } from 'mathjs';
 
 const SamplingRate = 8000;
 const SaveVideoDurationUS = 10_000_000;
@@ -55,8 +56,9 @@ async function start() {
   MicroModal.init();
 
   // サンプル画像ロード
-  if (Object.keys(images).length > 0) {
-    await loadImage(Object.values(images)[0])
+  const imageValues = Object.values(images);
+  if (imageValues.length > 0) {
+    await loadImage(imageValues[randomInt(imageValues.length)]);
     selectInputElement('image');
     trigger.classList.add('tap-here');
   }
