@@ -90,7 +90,7 @@ async function start() {
       MicroModal.close('modal-1');
     }
   });
-  
+
   // カメラ起動
   ele('#camera-button')?.addEventListener('click', async () => {
     await stopSound();
@@ -167,7 +167,7 @@ function stopVideo() {
 async function loadModels() {
   await img2spctr.load('./static/img2spctr/model.json');
   await img2f0.load('./static/img2f0/model.json');
-  
+
   const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
   const detectorConfig = {
     runtime: 'tfjs',
@@ -176,29 +176,22 @@ async function loadModels() {
 }
 
 async function loadImage(path: string) {
-  // input_data = ele<HTMLCanvasElement>('#input-canvas');
   image.src = path;
-  // const image = new Image();
-  // image.onload = () => {
-  //   canvas.getContext('2d')?.drawImage(image, 0, 0, image.width, image.height, 0, 0, canvas.width, canvas.height);
-  // }
   await new Promise(resolve => image.onload = resolve);
 }
 
-async function faceDetect(input: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement): Promise<{left: number, top: number, right: number, bottom: number}[]> {
-  let faces: {left: number, top: number, right: number, bottom: number, col: number[]}[] = [];
+async function faceDetect(input: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement): Promise<{ left: number, top: number, right: number, bottom: number }[]> {
+  let faces: { left: number, top: number, right: number, bottom: number, col: number[] }[] = [];
 
   const detections = await detector?.estimateFaces(input) || [];
   for (let detection of detections) {
-    faces.push({left: detection.box.xMin, top: detection.box.yMin, right: detection.box.xMax, bottom: detection.box.yMax, col: [0, 255, 0, 255]});
+    faces.push({ left: detection.box.xMin, top: detection.box.yMin, right: detection.box.xMax, bottom: detection.box.yMax, col: [0, 255, 0, 255] });
   }
 
-  if (process.env.NODE_ENV === 'development')
-  {
+  if (process.env.NODE_ENV === 'development') {
     const src = cv.imread(input);
-    for (let face of faces)
-    {
-      cv.rectangle(src, {x: face.left, y: face.top}, {x: face.right, y: face.bottom}, face.col);
+    for (let face of faces) {
+      cv.rectangle(src, { x: face.left, y: face.top }, { x: face.right, y: face.bottom }, face.col);
       cv.imshow('canvasOutput', src);
     }
     src.delete();
@@ -216,7 +209,7 @@ async function predict() {
 
   const faces = await faceDetect(input_data);
   if (faces.length == 0) {
-    faces.push({left: 0, top: 0, right: input_data.width, bottom: input_data.height});
+    faces.push({ left: 0, top: 0, right: input_data.width, bottom: input_data.height });
   }
 
   // モデル実行
@@ -228,7 +221,7 @@ async function predict() {
       faces[0].bottom / input_data.height,
       faces[0].right / input_data.width,
     ];
-    let imgs = tf.image.cropAndResize(tf.expandDims<tf.Tensor4D>(img), [box], [0], [71,71])
+    let imgs = tf.image.cropAndResize(tf.expandDims<tf.Tensor4D>(img), [box], [0], [71, 71])
     // img = tf.image.resizeBilinear(img, [71,71]);
     const inputTensor = tf.div(imgs, 255.0);
 
@@ -238,7 +231,7 @@ async function predict() {
       return undefined;
     }
 
-    return {sp, f0: f0[0]};
+    return { sp, f0: f0[0] };
   });
 
   if (output === undefined) {
@@ -265,7 +258,7 @@ async function predict() {
     f0s.shift();
   }
   f0 = ave(f0s);
-  
+
   // インパルス応答取得
   const response = GetOneFrameSegment(f0, SamplingRate, sp_ave, sp_ave.length);
   impulseResponse = normalize(response);
@@ -340,20 +333,20 @@ async function updateSound() {
 
 async function playSound() {
   if (!audioContext) {
-    audioContext = new AudioContext({sampleRate: SamplingRate});
+    audioContext = new AudioContext({ sampleRate: SamplingRate });
   }
   if (audioContext.state === 'suspended') {
     audioContext.resume();
   }
-  
-  if(isSoundPlaying || oscillator != null) {
+
+  if (isSoundPlaying || oscillator != null) {
     return;
   }
 
-  oscillator = new OscillatorNode(audioContext, {type: 'square', frequency: f0});
+  oscillator = new OscillatorNode(audioContext, { type: 'square', frequency: f0 });
   processorNode = await createPulseGeneratorNode(audioContext);
-  gainNode = new GainNode(audioContext, {gain: 0.0});
-  gainNodeSwap = new GainNode(audioContext, {gain: 0.0});
+  gainNode = new GainNode(audioContext, { gain: 0.0 });
+  gainNodeSwap = new GainNode(audioContext, { gain: 0.0 });
 
   if (!processorNode) {
     return;
@@ -365,7 +358,7 @@ async function playSound() {
     .connect(audioContext.destination);
   gainNodeSwap
     .connect(audioContext.destination);
-  
+
   oscillator.start();
   isSoundPlaying = true;
 };
