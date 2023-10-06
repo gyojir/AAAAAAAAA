@@ -405,12 +405,16 @@ function setupEncoder() {
     }
     await stopSound();
 
+    // 偶数サイズ
+    const width = lastInputData.width + lastInputData.width % 2;
+    const height = lastInputData.height + lastInputData.height % 2;
+
     const muxer = new Muxer({
       target: new ArrayBufferTarget(),
       video: {
         codec: 'V_VP9',
-        width: lastInputData.width,
-        height: lastInputData.height,
+        width: width,
+        height: height,
       },
       audio: {
         codec: 'A_OPUS',
@@ -426,8 +430,8 @@ function setupEncoder() {
     });
     videoEncoder.configure({
       codec: 'vp09.00.10.08',
-      width: lastInputData.width,
-      height: lastInputData.height,
+      width: width,
+      height: height,
       latencyMode: 'realtime',
       bitrateMode: 'constant',
       bitrate: 2_000_000, // 2 Mbps
