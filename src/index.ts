@@ -123,15 +123,11 @@ async function setupCam() {
     return;
   }
 
-  const constraints = {
-    video: {
-      width: { min: 224, ideal: 224, max: 224, },
-      height: { min: 224, ideal: 224, max: 224, },
-    }
-  };
-  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
   await new Promise(resolve => video.onplaying = resolve);
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
   updateVideo();
 }
 

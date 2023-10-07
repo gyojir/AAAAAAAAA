@@ -15,6 +15,7 @@
 				text-align: center;
   			gap: 30px;
 			}
+			
 			canvas {
 				display: block;
 			}
@@ -24,11 +25,11 @@
 				flex-direction: column;
 				position: relative;
 				user-select: none;
-				width: 80%;
+				width: 95%;
 				max-width: 600px;
 			}
 
-			img {
+			.image-container img,canvas {
 				object-fit: contain;
 				max-height: 600px;
 			}
@@ -93,7 +94,7 @@
 	<body>
 		<div class="image-container trigger">
 			<img class="hide" id="input-image"></img>
-			<canvas width="224px" height="224px" id="input-canvas" class="hide"></canvas>
+			<canvas id="input-canvas" class="hide"></canvas>
 			<video autoplay hidden></video>
 		</div>
 		<div class="button-container">
