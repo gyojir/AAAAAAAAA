@@ -1,0 +1,2 @@
+class e extends AudioWorkletProcessor{isOn=!1;constructor(){super()}static get parameterDescriptors(){return[{name:"gain",defaultValue:.2,minValue:0,maxValue:1}]}process(e,r,t){let s=e[0],n=r[0];if(0==s.length)return!0;let l=s[0].length;for(let e=0;e<l;e++){let r=s[0][e];!this.isOn&&r>0?n[0][e]=1:n[0][e]=0,this.isOn=r>0}return!0}}registerProcessor("pulse-generator",e);
+//# sourceMappingURL=pulse-generator.cea0d534.js.map
